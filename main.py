@@ -1,5 +1,6 @@
 from datetime import datetime
 import json
+import argparse
 
 class To_Do_Item:
     def __init__(self, tid, task, start, target):
@@ -96,48 +97,90 @@ def load_list(filename = "tasks.json"):
 def reset_file(filename = "tasks.json"):
     open(filename, "w").close()
 
+def get_args():
+    parser = argparse.ArgumentParser(description = "To Do List Manager")
+
+    subparsers = parser.add_subparsers(dest = "command")
+
+    add_parser = subparsers.add_parser("add", help = "Add a new task")
+    add_parser.add_argument("task", type = str, help = "Task description")
+    add_parser.add_argument("--start", type = parse_datetime, default = datetime.now(), help = "Start time (YYYY-MM-DD [HH:MM])")
+    add_parser.add_argument("--target", type = parse_datetime, required = True, help = "Target time (YYYY-MM-DD [HH:MM])")
+
+    rm_parser = subparsers.add_parser("remove", help = "Remove a task")
+    rm_parser.add_argument("tid", type = int, help = "Task ID")
+
+    finish_parser = subparsers.add_parser("finish", help = "Mark a task finished")
+    finish_parser.add_argument("tid", type = int, help = "Task ID")
+
+    list_parser = subparsers.add_parser("list", help = "List tasks")
+    list_parser.add_argument("--pending", action = "store_true", help = "Show only pending tasks")
+    list_parser.add_argument("--finished", action = "store_true", help = "Show only finished tasks")
+
+    clear_parser = subparsers.add_parser("clear", help = "Clears list of tasks (requires code)")
+    clear_parser.add_argument("--passcode", type = int, required = True, help = "Passcode to clear list")
+
+    return parser.parse_args()
+
+def parse_datetime(value):
+    formats = [
+        "%Y-%m-%d %H:%M",
+        "%Y-%m-%d",
+        "%H:%M"
+    ]
+
+    for fmt in formats:
+        try:
+            dt = datetime.strptime(value, fmt)
+            if fmt == "%H:%M":
+                today = datetime.now()
+                dt = dt.replace(year = today.year, month = today.month, day = today.day)
+            return dt
+        except ValueError:
+            continue
+    raise ValueError(f"Invalid datetime format: {value}. Expected YYYY-MM-DD HH:MM, YYYY-MM-DD, or HH:MM.")
+
 def main():
     to_do_list = load_list()
 
-    print("Loading list:")
-    to_do_print(to_do_list)
+    args = get_args()
 
-    print("\nResetting file:")
-    reset_file()
-    to_do_list = load_list()
-    to_do_print(to_do_list)
+    if args.command == "add":
+        new_id = max(to_do_list.keys(), default = -1) + 1
+        new_item = To_Do_Item(new_id, args.task, args.start, args.target)
+        to_do_add(to_do_list, new_item)
+        print(f"Added new task: {new_item}")
+        save_list(to_do_list)
+    elif args.command == "remove":
+        if args.tid in to_do_list:
+            rm_item = to_do_list[args.tid]
+            to_do_remove(to_do_list, rm_item)
+            print(f"Removed task: {rm_item}")
+            save_list(to_do_list)
+        else:
+            print(f"Task ID not in list: {args.tid}")
+    elif args.command == "finish":
+        if args.tid in to_do_list:
+            fin_item = to_do_list[args.tid]
+            fin_item.finish()
+            print(f"Finished task: {fin_item}")
+            save_list(to_do_list)
+        else:
+            print(f"Task ID not in list: {args.tid}")
+    elif args.command == "list":
+        if len(to_do_list) > 0:
+            to_do_print(to_do_list, pending_only = args.pending, finished_only = args.finished)
+        else:
+            print("To do list empty.")
+    elif args.command == "clear":
+        if args.passcode == 1234:
+            reset_file()
+            print("File cleared.")
+        else:
+            print("Incorrect passcode.")
 
-    to_do_add(to_do_list, To_Do_Item(0, "Buy groceries", datetime.strptime("2025 Oct 2", "%Y %b %d"), datetime.strptime("2025 Oct 3", "%Y %b %d")))
-    to_do_add(to_do_list, To_Do_Item(1, "Call Mom", datetime.strptime("2025 Oct 1", "%Y %b %d"), datetime.strptime("2025 Oct 2", "%Y %b %d")))
-    to_do_add(to_do_list, To_Do_Item(2, "Finish Python project", datetime.strptime("2025 Oct 1", "%Y %b %d"), datetime.strptime("2025 Oct 31", "%Y %b %d")))
-
-    print("\nFull list:")
-    to_do_print(to_do_list)
-
-    to_do_list[1].finish()
-
-    print("\nAfter one task finished:")
-    to_do_print(to_do_list)
-
-    print("\nTo JSON:")
-    print(to_json(to_do_list))
-
-    print("\nFrom JSON:")
-    to_do_print(to_do_list)
-
-    print("\nFilter pending only:")
-    to_do_print(to_do_list, pending_only = True)
-
-    print("\nFilter finished only")
-    to_do_print(to_do_list, finished_only = True)
-
-    to_do_remove(to_do_list, to_do_list[1])
-
-    print("\nRemoved one:")
-    to_do_print(to_do_list)
-
-    print("\nSaving list...")
-    save_list(to_do_list)
+    else:
+        print("Command not recognized")
 
 if __name__ == "__main__":
     main()
