@@ -1,6 +1,7 @@
 from datetime import datetime
 import json
 import argparse
+import os
 
 class To_Do_Item:
     def __init__(self, tid, task, start, target):
@@ -8,11 +9,11 @@ class To_Do_Item:
         self.task = task
         self.start = start
         self.target = target
-        self.finished = False
+        self.finished = None
     
     def __str__(self):
-        if self.finished:
-            finished_str = "Finished"
+        if self.finished is not None:
+            finished_str = f"Finished {datetime.strftime(self.finished, "%Y %b %d %H:%M")}"
         else:
             finished_str = "Pending"
 
@@ -25,7 +26,8 @@ class To_Do_Item:
         return self.task
     
     def finish(self):
-        self.finished = True
+        if self.finished is None:
+            self.finished = datetime.now()
 
     def to_dict(self):
         return {
@@ -33,7 +35,7 @@ class To_Do_Item:
             "task": self.task,
             "start": self.start.isoformat(),
             "target": self.target.isoformat(),
-            "finished": self.finished
+            "finished": self.finished.isoformat() if self.finished else None
         }
     
     @classmethod
@@ -44,7 +46,8 @@ class To_Do_Item:
             start = datetime.fromisoformat(data["start"]),
             target = datetime.fromisoformat(data["target"])
         )
-        item.finished = data.get("finished", False)
+        fin = data.get("finished")
+        item.finished = datetime.fromisoformat(fin) if fin else None
 
         return item
 
@@ -63,12 +66,48 @@ def to_do_print(td_list, pending_only = False, finished_only = False):
         return
 
     for i in td_sorted:
-        if pending_only and not i.finished:
+        if pending_only and i.finished is None:
             print(i)
-        elif finished_only and i.finished:
+        elif finished_only and i.finished is not None:
             print(i)
         elif not pending_only and not finished_only:
             print(i)
+
+def to_do_reminders(td_list, timespan_hours = 24):
+    now = datetime.now()
+    upcoming = []
+
+    for item in td_list.values():
+        if item.finished is None:
+            remaining = item.target - now
+            hours_left = remaining.total_seconds() / 3600
+
+            if hours_left <= 0:
+                status = f"OVERDUE by {format_timedelta(-remaining)}"
+                upcoming.append((item, remaining, status))
+            elif hours_left <= timespan_hours:
+                status = f"Due in {format_timedelta(remaining)}"
+                upcoming.append((item, remaining, status))
+
+    if len(upcoming) == 0:
+        print("No upcoming or overdue tasks.")
+        return
+    
+    for item, remaining, status in sorted(upcoming, key = lambda x: x[1]):
+        print(f"{item.task}: {status} (Target: {item.target.strftime("%Y %b %d %H:%M")})")
+
+def format_timedelta(delta):
+    total_seconds = int(abs(delta.total_seconds()))
+    days, remainder = divmod(total_seconds, 86400)
+    hours, remainder = divmod(remainder, 3600)
+    minutes = remainder // 60
+
+    if days > 0:
+        return f"{days} days {hours} hours"
+    elif hours > 0:
+        return f"{hours} hours {minutes} minutes"
+    else:
+        return f"{minutes} minutes"
 
 def to_json(td_list):
     json_safe_list = [item.to_dict() for item in td_list.values()]
@@ -95,7 +134,8 @@ def load_list(filename = "tasks.json"):
         return {}
     
 def reset_file(filename = "tasks.json"):
-    open(filename, "w").close()
+    if os.path.exists(filename):
+        os.remove(filename)
 
 def get_args():
     parser = argparse.ArgumentParser(description = "To Do List Manager")
@@ -116,6 +156,9 @@ def get_args():
     list_parser = subparsers.add_parser("list", help = "List tasks")
     list_parser.add_argument("--pending", action = "store_true", help = "Show only pending tasks")
     list_parser.add_argument("--finished", action = "store_true", help = "Show only finished tasks")
+
+    reminder_parser = subparsers.add_parser("remind", help = "List tasks soon or overdue")
+    reminder_parser.add_argument("--hours", type = float, default = 24, help = "Time window in hours for upcoming tasks")
 
     clear_parser = subparsers.add_parser("clear", help = "Clears list of tasks (requires code)")
     clear_parser.add_argument("--passcode", type = int, required = True, help = "Passcode to clear list")
@@ -172,6 +215,8 @@ def main():
             to_do_print(to_do_list, pending_only = args.pending, finished_only = args.finished)
         else:
             print("To do list empty.")
+    elif args.command == "remind":
+        to_do_reminders(to_do_list, timespan_hours = args.hours)
     elif args.command == "clear":
         if args.passcode == 1234:
             reset_file()
