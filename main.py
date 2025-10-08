@@ -7,11 +7,12 @@ class To_Do_Item:
     PRIORITY_MAP = {"low": 1, "medium": 2, "high": 3}
     PRIORITY_LABELS = {1: "Low", 2: "Medium", 3: "High"}
 
-    def __init__(self, tid, task, start, target, priority = "medium", tags = None):
+    def __init__(self, tid, task, start, target, updated = datetime.now(), priority = "medium", tags = None):
         self.tid = tid
         self.task = task
         self.start = start
         self.target = target
+        self.updated = updated
         self.finished = None
         self.priority = To_Do_Item.PRIORITY_MAP.get(priority.lower(), 2)
         self.tags = tags if tags else []
@@ -25,16 +26,36 @@ class To_Do_Item:
         priority_label = To_Do_Item.PRIORITY_LABELS[self.priority]
         start_str = datetime.strftime(self.start, "%Y %b %d %H:%M")
         target_str = datetime.strftime(self.target, "%Y %b %d %H:%M")
+        updated_str = datetime.strftime(self.updated, "%Y %b %d %H:%M")
         tags_str = ", ".join(self.tags)
         
-        return f"{self.tid} {self.task} [{finished_str}] (Priority: {priority_label}, Start: {start_str}, Target: {target_str})\n    Tags: {tags_str}"
+        return f"{self.tid} {self.task} [{finished_str}] (Priority: {priority_label}, Start: {start_str}, Target: {target_str}, Last updated: {updated_str})\n    Tags: {tags_str}"
 
     def __repr__(self):
         return self.task
     
+    def edit(self, task = None, target = None, priority = None, tags = None):
+        if task is not None:
+            self.task = task
+        
+        if target is not None:
+            if target < self.start:
+                print("Warning: Target time is before the start time.")
+            self.target = target
+
+        if priority is not None:
+            self.priority = To_Do_Item.PRIORITY_MAP.get(priority.lower(), self.priority)
+
+        if tags is not None:
+            self.tags = tags
+
+        self.updated = datetime.now()
+        print(f"Task {self.tid} updated at {self.updated.strftime('%Y-%m-%d %H:%M')}")
+    
     def finish(self):
         if self.finished is None:
             self.finished = datetime.now()
+            self.updated = datetime.now()
 
     def to_dict(self):
         return {
@@ -42,6 +63,7 @@ class To_Do_Item:
             "task": self.task,
             "start": self.start.isoformat(),
             "target": self.target.isoformat(),
+            "updated": self.updated.isoformat(),
             "finished": self.finished.isoformat() if self.finished else None,
             "priority": self.priority,
             "tags": self.tags
@@ -55,6 +77,7 @@ class To_Do_Item:
             task = data["task"],
             start = datetime.fromisoformat(data["start"]),
             target = datetime.fromisoformat(data["target"]),
+            updated = datetime.fromisoformat(data["updated"]),
             priority = To_Do_Item.PRIORITY_LABELS[priority_value].lower(),
             tags = data["tags"]
         )
@@ -170,6 +193,13 @@ def get_args():
     finish_parser = subparsers.add_parser("finish", help = "Mark a task finished")
     finish_parser.add_argument("tid", type = int, help = "Task ID")
 
+    edit_parser = subparsers.add_parser("edit", help = "Edit an existing task")
+    edit_parser.add_argument("tid", type = int, help = "Task ID")
+    edit_parser.add_argument("--task", type = str, default = None, help = "Task description")
+    edit_parser.add_argument("--priority", type = str, default = None, help = "Priority of task (High, Medium, or Low)")
+    edit_parser.add_argument("--target", type = parse_datetime, default = None, help = "Target time (YYYY-MM-DD [HH:MM])")
+    edit_parser.add_argument("--tags", type = str, default = None, help = "Tags for task groups (seperate multiples by commas)")
+
     list_parser = subparsers.add_parser("list", help = "List tasks")
     list_parser.add_argument("--pending", action = "store_true", help = "Show only pending tasks")
     list_parser.add_argument("--finished", action = "store_true", help = "Show only finished tasks")
@@ -211,7 +241,14 @@ def main():
         new_id = max(to_do_list.keys(), default = -1) + 1
         tags = [tag.strip() for tag in args.tags.split(",") if tag.strip()]
         start = args.start or datetime.now()
-        new_item = To_Do_Item(new_id, args.task, start, args.target, args.priority, tags)
+        new_item = To_Do_Item(
+            tid = new_id,
+            task = args.task,
+            start = start,
+            target = args.target,
+            priority = args.priority,
+            tags = tags
+        )
         to_do_add(to_do_list, new_item)
         print(f"Added new task: {new_item}")
         save_list(to_do_list)
@@ -229,6 +266,18 @@ def main():
             fin_item.finish()
             print(f"Finished task: {fin_item}")
             save_list(to_do_list)
+        else:
+            print(f"Task ID not in list: {args.tid}")
+    elif args.command == "edit":
+        if args.tid in to_do_list:
+            if args.tags is not None:
+                tags_value = [tag.strip() for tag in args.tags.split(",") if tag.strip()]
+            else:
+                tags_value = None
+            
+            to_do_list[args.tid].edit(args.task, args.target, args.priority, tags_value)
+            save_list(to_do_list)
+            print(f"Edited task: {to_do_list[args.tid]}")
         else:
             print(f"Task ID not in list: {args.tid}")
     elif args.command == "list":

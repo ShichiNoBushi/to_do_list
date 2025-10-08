@@ -12,8 +12,8 @@ The following arguments have function with the program. Use "--help" for a list 
 ### "add (task)": adds the task to the to do list and saves it; new tasks are created as "pending"
 * "--start (date/time)": sets the start time of the task; defaults to current date and time; enter time in YYYY-MM-DD HH:MM 24-hour format; date or time may be entered alone defaulting to midnight or current date
 * "--target (date/time)": sets the target time of the task; entry for target is required; enter time in YYYY-MM-DD HH:MM 24-hour format; date or time may be entered alone defaulting to midnight or current date
-* "--priority": set priority of task (low, medium, or high; default medium)
-* "--tags": set a list of tags for groups of tasks, tasks may have multiple tags seperated by commas (,)
+* "--priority (Low/Medium/High)": set priority of task (low, medium, or high; default medium)
+* "--tags (list)": set a list of tags for groups of tasks; tasks may have multiple tags seperated by commas (,)
 
 ```
 python3 main.py add "Finish Python project" --target 2025-10-31 18:00 --priority high --tags work,python
@@ -23,6 +23,16 @@ python3 main.py add "Finish Python project" --target 2025-10-31 18:00 --priority
 
 ```
 python3 main.py remove 1
+```
+
+### "edit (task id)": edit existing task with optional fields replacing corresponding values; notes time task is updated
+* "--task (description)": sets the description of the task
+* "--target (date/time)": sets the target time of the task; enter time in YYYY-MM-DD HH:MM 24-hour format; date or time may be entered alone defaulting to midnight or current date; gives warning if target time is before start time
+* "--priority (Low/Medium/High)": set priority of task (low, medium, or high)
+* "--tags (list)": set a list of tags for groups of tasks; tasks may have multiple tags seperated by commas (,)
+
+```
+python3 main.py edit 2 --priority High --tags home,family
 ```
 
 ### "finish (task id)": marks task as finished at the current date and time designated by Task ID number (use "list" for tasks with ID numbers) and saves list
