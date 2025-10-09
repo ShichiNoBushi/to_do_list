@@ -41,14 +41,15 @@ python3 main.py edit 2 --priority High --tags home,family
 python3 main.py remove 3
 ```
 
-### "list": prints as list of tasks in to do list sorted by start time; optional filters
+### "list": prints as list of tasks in to do list sorted by start time; optional filters and sorting
 * "--pending": filters list to pending unfinished tasks
 * "--finished": filters list to finished tasks
 * "--priority": filter by task priority (low, medium, high, or all; default all)
 * "--tags": filter by all tags matching with tags in tasks, multiples seperated by commas (,)
+* "--sort": sorts list according to listed fields in order of priority, multiples seperated by commas (,)
 
 ```
-python3 main.py list --pending --priority high --tags work
+python3 main.py list --pending --priority high --tags work --sort target,start
 ```
 
 ### "remind": prints a list of tasks within designated or default timespan or past target time
@@ -63,12 +64,12 @@ python3 main.py remind --hours 12
 ## Features
 
 * Add, remove, and finish tasks
-* Priority and tag filtering
+* Edit tasks
+* Priority and tag filtering and sorting
 * JSON persistence and automatic saving
 * Reminder for upcoming or overdue tasks
 
 ## Future Improvements
 
-* Editing tasks
 * GUI
 * Notifications
